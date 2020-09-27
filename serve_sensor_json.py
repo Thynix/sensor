@@ -10,6 +10,7 @@ from twisted.internet import reactor, endpoints
 import json
 import time
 import threading
+import signal
 
 # TODO: Accept particle sensor and cycle period with argparse?
 # Which particle sensor, if any, is attached
@@ -20,7 +21,7 @@ particleSensor = constants.PARTICLE_SENSOR_OFF
 cycle_period = constants.CYCLE_PERIOD_3_S
 
 
-def read_sensor(current_data: dict, data_lock: threading.Lock):
+def read_sensor(current_data: dict, data_lock: threading.Lock, quit_event: threading.Event):
     # Set up the GPIO and I2C communications bus
     gpio, i2c = functions.SensorHardwareSetup()
 
@@ -38,12 +39,15 @@ def read_sensor(current_data: dict, data_lock: threading.Lock):
     i2c.write_byte(functions.i2c_7bit_address, constants.CYCLE_MODE_CMD)
 
     # TODO: How to ensure this thread can exit gracefully?
-    while True:
+    while not quit_event.is_set():
         # Wait for the next new data release, indicated by a falling edge on
         # READY.
         while not gpio.event_detected(functions.READY_pin):
             # TODO: Is it safe for this time to be 1 instead of 0.05 as in cycle_readout?
             time.sleep(1)
+
+        if quit_event.is_set():
+            return
 
         # Air data
         raw_data = i2c.read_i2c_block_data(functions.i2c_7bit_address,
@@ -125,20 +129,29 @@ class SensorData(resource.Resource):
         request.setHeader(b"content-type", b"application/JSON")
         with self.data_lock:
             # TODO: return an error if the sensor data hasn't been filled out yet.
-            return json.dumps(self.current_data)
+            return json.dumps(self.current_data).encode("utf8")
 
 
 def main():
     current_data = dict()
     data_lock = threading.Lock()
+    quit_event = threading.Event()
 
-    reactor.callInThread(read_sensor, current_data, data_lock)
+    def handler(signum, frame):
+        print("got SIGINT; quitting")
+        quit_event.set()
+
+    signal.signal(signal.SIGINT, handler)
+
+    reactor.callInThread(read_sensor, current_data, data_lock, quit_event)
 
     endpoints.serverFromString(reactor, "tcp:8080").listen(server.Site(SensorData(
         current_data,
         data_lock,
     )))
     reactor.run()
+
+    quit_event.set()
 
 
 if __name__ == '__main__':

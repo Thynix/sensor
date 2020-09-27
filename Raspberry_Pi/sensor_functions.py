@@ -15,7 +15,7 @@ import datetime
 import RPi.GPIO as GPIO
 import smbus
 import os
-from sensor_constants import *
+from Raspberry_Pi.sensor_constants import *
 
 ##########################################################################################
 
