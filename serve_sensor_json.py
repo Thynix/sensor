@@ -140,6 +140,7 @@ def main():
     def handler(signum, frame):
         print("got SIGINT; quitting")
         quit_event.set()
+        reactor.stop()
 
     signal.signal(signal.SIGINT, handler)
 
@@ -150,8 +151,6 @@ def main():
         data_lock,
     )))
     reactor.run()
-
-    quit_event.set()
 
 
 if __name__ == '__main__':
