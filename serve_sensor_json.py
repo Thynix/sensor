@@ -107,7 +107,7 @@ def read_sensor(current_data: dict, data_lock: threading.Lock, quit_event: threa
         if air_quality_data['AQI_accuracy'] > 0:
             result["air_quality"].update({
                 "aqi": air_quality_data['AQI'],
-                "aqi_str": functions.interpret_AQI_accuracy(air_quality_data['AQI']),
+                "aqi_str": functions.interpret_AQI_value(air_quality_data['AQI']),
                 "co2_estimate": air_quality_data['CO2e'],
                 "equivalent_breath_voc": air_quality_data['bVOC'],
             })
